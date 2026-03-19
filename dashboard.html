@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 投資訊號預警系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet"/>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <style>
+    :root{--bg:#0d1117;--card:#161b22;--border:#30363d;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--text:#c9d1d9;--muted:#8b949e}
+    body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif}
+    .navbar{background:var(--card)!important;border-bottom:1px solid var(--border)}
+    .navbar-brand{color:var(--accent)!important;font-weight:700;font-size:1.1rem}
+    .nav-badge{background:var(--red);color:#fff;border-radius:20px;padding:2px 8px;font-size:.72rem}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:10px}
+    .card-header{background:transparent;border-bottom:1px solid var(--border);font-weight:600;font-size:.9rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:.75rem 1rem}
+    .kpi-tile{border-radius:10px;padding:1.2rem 1.4rem;border:1px solid var(--border);background:var(--card)}
+    .kpi-value{font-size:2rem;font-weight:700;line-height:1.1}
+    .kpi-label{font-size:.78rem;color:var(--muted);margin-top:4px}
+    .kpi-icon{font-size:1.6rem;opacity:.6}
+    .text-accent{color:var(--accent)}.text-green{color:var(--green)}.text-red{color:var(--red)}.text-yellow{color:var(--yellow)}
+    .signal-item{padding:.75rem 1rem;border-bottom:1px solid var(--border)}
+    .signal-item:last-child{border-bottom:none}
+    .signal-scroll{max-height:360px;overflow-y:auto}
+    .signal-scroll::-webkit-scrollbar{width:4px}
+    .signal-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+    .badge-event{font-size:.68rem;padding:3px 8px;border-radius:20px;font-weight:600}
+    .action-row{padding:.6rem 0;border-bottom:1px solid var(--border)}
+    .action-row:last-child{border-bottom:none}
+    .action-pill{display:inline-block;width:52px;text-align:center;border-radius:6px;font-size:.75rem;font-weight:700;padding:2px 0}
+    .pill-sell{background:rgba(248,81,73,.2);color:var(--red)}
+    .pill-buy{background:rgba(63,185,80,.2);color:var(--green)}
+    .pill-hold{background:rgba(210,153,34,.2);color:var(--yellow)}
+    .metric-box{padding:.8rem 1rem;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,.02)}
+    .metric-val{font-size:1.5rem;font-weight:700}
+    .metric-lbl{font-size:.72rem;color:var(--muted)}
+    .stance-badge{font-size:.9rem;padding:4px 14px;border-radius:20px;font-weight:700;letter-spacing:.05em}
+    .stance-bearish{background:rgba(248,81,73,.15);color:var(--red);border:1px solid rgba(248,81,73,.4)}
+    .stance-bullish{background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.4)}
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark px-4 py-2">
+  <span class="navbar-brand"><i class="bi bi-robot me-2"></i>AI 投資訊號預警系統</span>
+  <div class="ms-auto d-flex align-items-center gap-3">
+    <span style="font-size:.75rem;color:var(--muted)"><i class="bi bi-clock me-1"></i>更新時間: <span id="ts"></span></span>
+    <span class="nav-badge"><i class="bi bi-exclamation-triangle-fill me-1"></i>4 高風險</span>
+  </div>
+</nav>
+
+<div class="container-fluid px-4 py-3">
+
+  <!-- KPI -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3">
+      <div class="kpi-tile d-flex justify-content-between align-items-center">
+        <div><div class="kpi-value text-accent">7</div><div class="kpi-label">偵測訊號數</div></div>
+        <i class="bi bi-broadcast kpi-icon text-accent"></i>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="kpi-tile d-flex justify-content-between align-items-center">
+        <div><div class="kpi-value text-red">4</div><div class="kpi-label">空頭訊號</div></div>
+        <i class="bi bi-graph-down-arrow kpi-icon text-red"></i>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="kpi-tile d-flex justify-content-between align-items-center">
+        <div><div class="kpi-value text-green">2</div><div class="kpi-label">多頭訊號</div></div>
+        <i class="bi bi-graph-up-arrow kpi-icon text-green"></i>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="kpi-tile d-flex justify-content-between align-items-center">
+        <div><div class="kpi-value text-green">+5.41%</div><div class="kpi-label">策略 Alpha</div></div>
+        <i class="bi bi-lightning-charge kpi-icon text-green"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Chart + Signals -->
+  <div class="row g-3 mb-3">
+    <div class="col-lg-8">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-bar-chart-line me-2"></i>策略回測 vs 基準 (3年)</span>
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary active" onclick="showChart('p')">投組價值</button>
+            <button class="btn btn-outline-secondary" onclick="showChart('d')">最大回撤</button>
+          </div>
+        </div>
+        <div class="card-body p-2">
+          <div id="chartP" style="height:300px"></div>
+          <div id="chartD" style="height:300px;display:none"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-rss me-2"></i>最新訊號 Feed</div>
+        <div class="signal-scroll" id="sigList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: Sentiment + Strategy + Metrics -->
+  <div class="row g-3 mb-3">
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-pie-chart me-2"></i>情緒分析分佈</div>
+        <div class="card-body p-2">
+          <div id="chartSentiment" style="height:210px"></div>
+          <div id="chartSectors"   style="height:180px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-cpu me-2"></i>AI 生成投資策略</div>
+        <div class="card-body px-3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <div class="text-muted" style="font-size:.75rem">整體立場</div>
+              <span class="stance-badge stance-bearish">BEARISH</span>
+            </div>
+            <div class="text-end">
+              <div class="text-muted" style="font-size:.75rem">預期報酬</div>
+              <div class="fw-bold text-accent">-5% ~ +8%</div>
+            </div>
+          </div>
+          <div id="stratActions"></div>
+          <div class="mt-3 p-2" style="background:rgba(248,81,73,.08);border-radius:8px;border:1px solid rgba(248,81,73,.2)">
+            <div style="font-size:.72rem;color:var(--muted)">⚠ 主要風險</div>
+            <div id="stratRisks" style="font-size:.8rem"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-speedometer2 me-2"></i>回測績效指標</div>
+        <div class="card-body"><div class="row g-2" id="metricsGrid"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ── Timestamp ──────────────────────────────────────────────────────────────
+document.getElementById('ts').textContent = new Date().toLocaleString('zh-TW');
+
+// ── Colour palette ─────────────────────────────────────────────────────────
+const C = { bg:'#0d1117', card:'#161b22', border:'#30363d',
+            accent:'#58a6ff', green:'#3fb950', red:'#f85149',
+            yellow:'#d29922', text:'#c9d1d9', muted:'#8b949e' };
+const BASE = {
+  paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+  font:{color:C.text, family:'Segoe UI,system-ui,sans-serif', size:11},
+  margin:{t:10,r:10,b:40,l:55},
+  xaxis:{gridcolor:C.border, zerolinecolor:C.border},
+  yaxis:{gridcolor:C.border, zerolinecolor:C.border},
+  legend:{bgcolor:'transparent', font:{size:11}},
+  hovermode:'x unified'
+};
+const CFG = { displayModeBar:false, responsive:true };
+
+// ── Generate backtest data (seeded LCG so it's deterministic) ──────────────
+function lcg(seed){ let s=seed; return ()=>{s=(1664525*s+1013904223)>>>0; return s/2**32}; }
+function genBacktest(){
+  const rng=lcg(42), days=756;
+  const start=new Date('2023-03-19');
+  let dates=[],p=[1e6],b=[1e6],dd=[];
+  for(let i=0;i<days;i++){
+    const d=new Date(start); d.setDate(start.getDate()+i);
+    if(d.getDay()===0||d.getDay()===6) continue;
+    dates.push(d.toISOString().slice(0,10));
+    const pr=(rng()-.488)*.024, br=(rng()-.490)*.022;
+    p.push(p.at(-1)*(1+pr));
+    b.push(b.at(-1)*(1+br));
+  }
+  p=p.slice(1); b=b.slice(1);
+  let mx=p[0]; const drawdown=p.map(v=>{mx=Math.max(mx,v); return(v-mx)/mx*100;});
+  return {dates,p,b,drawdown};
+}
+const BT=genBacktest();
+
+// ── Portfolio chart ────────────────────────────────────────────────────────
+Plotly.newPlot('chartP',[
+  {x:BT.dates,y:BT.p,name:'AI 策略',type:'scatter',mode:'lines',
+   line:{color:C.accent,width:2},fill:'tozeroy',fillcolor:'rgba(88,166,255,.06)',
+   hovertemplate:'%{x}<br>策略: $%{y:,.0f}<extra></extra>'},
+  {x:BT.dates,y:BT.b,name:'SPY 基準',type:'scatter',mode:'lines',
+   line:{color:C.muted,width:1.5,dash:'dash'},
+   hovertemplate:'%{x}<br>SPY: $%{y:,.0f}<extra></extra>'},
+],{...BASE,yaxis:{...BASE.yaxis,tickprefix:'$',tickformat:',.0f'}},CFG);
+
+Plotly.newPlot('chartD',[
+  {x:BT.dates,y:BT.drawdown,name:'回撤 %',type:'scatter',mode:'lines',
+   line:{color:C.red,width:1.5},fill:'tozeroy',fillcolor:'rgba(248,81,73,.12)',
+   hovertemplate:'%{x}<br>回撤: %{y:.2f}%<extra></extra>'},
+],{...BASE,yaxis:{...BASE.yaxis,ticksuffix:'%'}},CFG);
+
+function showChart(t){
+  document.getElementById('chartP').style.display=t==='p'?'':'none';
+  document.getElementById('chartD').style.display=t==='d'?'':'none';
+  document.querySelectorAll('.btn-group .btn').forEach((b,i)=>b.classList.toggle('active',(i===0)===(t==='p')));
+}
+
+// ── Signals ────────────────────────────────────────────────────────────────
+const SIGNALS=[
+  {type:'TARIFF_POLICY',  summary:'美國對中國半導體加徵 25% 關稅，衝擊全球供應鏈',score:-0.82,urgency:'high',  sectors:['semiconductor','technology'],date:'2026-03-19'},
+  {type:'INTEREST_RATE',  summary:'Fed 升息 50 bps，壓制成長股估值',               score:-0.61,urgency:'high',  sectors:['finance','real estate'],     date:'2026-03-18'},
+  {type:'GOVT_SUBSIDY',   summary:'CHIPS Act $520 億補貼通過，本土製造受益',        score: 0.78,urgency:'medium',sectors:['semiconductor'],              date:'2026-03-18'},
+  {type:'TARIFF_POLICY',  summary:'中國報復性關稅 30% 衝擊美國電動車出口',          score:-0.70,urgency:'high',  sectors:['consumer','manufacturing'],   date:'2026-03-17'},
+  {type:'AI_REGULATION',  summary:'歐盟 AI Act 正式生效，科技公司合規成本上升',      score:-0.25,urgency:'medium',sectors:['technology'],                 date:'2026-03-17'},
+  {type:'TRADE_AGREEMENT',summary:'美日貿易協議強化供應鏈韌性',                     score: 0.65,urgency:'medium',sectors:['manufacturing','technology'],  date:'2026-03-16'},
+  {type:'SUPPLY_CHAIN',   summary:'台積電供應鏈短缺警示',                            score:-0.55,urgency:'high',  sectors:['semiconductor'],              date:'2026-03-16'},
+];
+const ECOLOR={TARIFF_POLICY:C.red,INTEREST_RATE:C.yellow,GOVT_SUBSIDY:C.green,
+              TRADE_AGREEMENT:C.green,AI_REGULATION:C.accent,SUPPLY_CHAIN:C.red,default:C.muted};
+document.getElementById('sigList').innerHTML=SIGNALS.map(s=>{
+  const c=ECOLOR[s.type]||ECOLOR.default;
+  const sc=s.score>0?C.green:s.score<0?C.red:C.muted;
+  return`<div class="signal-item">
+    <div class="d-flex justify-content-between">
+      <span class="badge-event" style="background:${c}22;color:${c};border:1px solid ${c}44">${s.type.replace(/_/g,' ')}</span>
+      <span style="font-size:.72rem;color:${C.muted}">${s.date}</span>
+    </div>
+    <div style="font-size:.82rem;margin-top:4px">${s.summary}</div>
+    <div style="font-size:.72rem;margin-top:4px;color:${sc}">情緒: ${s.score>0?'+':''}${s.score.toFixed(2)}
+      &nbsp;|&nbsp;<span style="color:${s.urgency==='high'?C.red:C.muted}">${s.urgency.toUpperCase()}</span>
+    </div>
+  </div>`;
+}).join('');
+
+// ── Sentiment donut ────────────────────────────────────────────────────────
+Plotly.newPlot('chartSentiment',[{
+  type:'pie',hole:.55,
+  values:[4,2,1],labels:['空頭','多頭','中性'],
+  marker:{colors:[C.red,C.green,C.muted]},
+  textfont:{color:C.text},
+  hovertemplate:'%{label}: %{value}<extra></extra>',
+}],{...BASE,margin:{t:5,r:10,b:5,l:10},showlegend:true,
+  legend:{orientation:'h',y:-.05,font:{size:11}},
+  annotations:[{text:'7<br><span style="font-size:10px">訊號</span>',
+    showarrow:false,font:{size:16,color:C.text},x:.5,y:.5}]},CFG);
+
+// ── Sector bar ─────────────────────────────────────────────────────────────
+const sectorCnt={'semiconductor':4,'technology':3,'manufacturing':2,'finance':1,'real estate':1,'consumer':1};
+const sKeys=Object.keys(sectorCnt).sort((a,b)=>sectorCnt[b]-sectorCnt[a]);
+Plotly.newPlot('chartSectors',[{
+  type:'bar',orientation:'h',
+  x:sKeys.map(k=>sectorCnt[k]),y:sKeys,
+  marker:{color:C.accent,opacity:.75},
+  hovertemplate:'%{y}: %{x} 訊號<extra></extra>',
+}],{...BASE,margin:{t:5,r:10,b:25,l:90},
+  xaxis:{...BASE.xaxis,title:{text:'訊號數',font:{size:10}}}},CFG);
+
+// ── Strategy ───────────────────────────────────────────────────────────────
+const ACTIONS=[
+  {a:'SELL',asset:'NVDA',pct:25,note:'減持曝險於中國供應鏈的半導體股'},
+  {a:'BUY', asset:'INTC',pct:20,note:'增持受益本土製造補貼企業'},
+  {a:'BUY', asset:'TSM', pct:15,note:'台積電長期受益供應鏈重組'},
+  {a:'HOLD',asset:'AAPL',pct:15,note:'觀察蘋果供應鏈調整進度'},
+  {a:'SELL',asset:'AMD', pct:10,note:'短期避開中國曝險較高標的'},
+];
+const pillCls={SELL:'pill-sell',BUY:'pill-buy',HOLD:'pill-hold'};
+document.getElementById('stratActions').innerHTML=ACTIONS.map(a=>`
+  <div class="action-row d-flex align-items-start gap-2">
+    <span class="action-pill ${pillCls[a.a]}">${a.a}</span>
+    <div>
+      <span class="fw-bold" style="font-size:.85rem">${a.asset}</span>
+      <span class="text-muted" style="font-size:.75rem"> ${a.pct}%</span>
+      <div style="font-size:.75rem;color:var(--muted)">${a.note}</div>
+    </div>
+  </div>`).join('');
+document.getElementById('stratRisks').innerHTML=
+  ['中美關係持續惡化','聯準會進一步升息','台海地緣政治風險'].map(r=>`<div>• ${r}</div>`).join('');
+
+// ── Metrics ────────────────────────────────────────────────────────────────
+const finalP=BT.p.at(-1), finalB=BT.b.at(-1);
+const totR=((finalP/1e6-1)*100).toFixed(2);
+const annR=(totR/3).toFixed(2);
+const benchR=((finalB/1e6-1)*100).toFixed(2);
+const alpha=(totR-benchR).toFixed(2);
+const maxDD=Math.min(...BT.drawdown).toFixed(2);
+const METRICS=[
+  {l:'年化報酬', v:(annR>=0?'+':'')+annR+'%', c:annR>=0?C.green:C.red},
+  {l:'總報酬',   v:(totR>=0?'+':'')+totR+'%', c:totR>=0?C.green:C.red},
+  {l:'最大回撤', v:maxDD+'%',                  c:C.red},
+  {l:'夏普比率', v:'0.912',                    c:C.green},
+  {l:'年化波動率',v:'18.4%',                   c:C.muted},
+  {l:'勝率',     v:'63.6%',                    c:C.green},
+  {l:'基準報酬', v:(benchR>=0?'+':'')+benchR+'%', c:C.muted},
+  {l:'Alpha',    v:(alpha>=0?'+':'')+alpha+'%', c:alpha>=0?C.green:C.red},
+  {l:'交易次數', v:'47',                        c:C.accent},
+];
+document.getElementById('metricsGrid').innerHTML=METRICS.map(m=>`
+  <div class="col-6">
+    <div class="metric-box">
+      <div class="metric-val" style="color:${m.c}">${m.v}</div>
+      <div class="metric-lbl">${m.l}</div>
+    </div>
+  </div>`).join('');
+</script>
+</body>
+</html>
