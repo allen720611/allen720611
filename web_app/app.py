@@ -167,6 +167,7 @@ def api_summary():
 
 
 if __name__ == "__main__":
-    print("\n🚀 AI Investment Dashboard 啟動中...")
-    print("   開啟瀏覽器前往: http://127.0.0.1:5000\n")
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 8050))
+    print(f"\n AI Investment Dashboard 啟動中...")
+    print(f"   開啟瀏覽器前往: http://127.0.0.1:{port}\n")
+    app.run(debug=False, host="0.0.0.0", port=port)
