@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 投資訊號預警系統</title>
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet" />
+  <!-- Plotly -->
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #d29922;
+      --text: #c9d1d9;
+      --muted: #8b949e;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; }
+
+    /* Navbar */
+    .navbar { background: var(--card) !important; border-bottom: 1px solid var(--border); }
+    .navbar-brand { color: var(--accent) !important; font-weight: 700; font-size: 1.1rem; }
+    .nav-badge { background: var(--red); color: #fff; border-radius: 20px; padding: 2px 8px; font-size: 0.72rem; }
+
+    /* Cards */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+    .card-header { background: transparent; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 0.9rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* KPI tiles */
+    .kpi-tile { border-radius: 10px; padding: 1.2rem 1.4rem; border: 1px solid var(--border); background: var(--card); }
+    .kpi-value { font-size: 2rem; font-weight: 700; line-height: 1.1; }
+    .kpi-label { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+    .kpi-icon { font-size: 1.6rem; opacity: 0.6; }
+    .text-accent { color: var(--accent); }
+    .text-green  { color: var(--green); }
+    .text-red    { color: var(--red); }
+    .text-yellow { color: var(--yellow); }
+
+    /* Signal list */
+    .signal-item { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); transition: background 0.15s; cursor: default; }
+    .signal-item:last-child { border-bottom: none; }
+    .signal-item:hover { background: rgba(88,166,255,0.05); }
+    .badge-event { font-size: 0.68rem; padding: 3px 8px; border-radius: 20px; font-weight: 600; }
+
+    /* Strategy table */
+    .action-row { padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+    .action-row:last-child { border-bottom: none; }
+    .action-pill { display: inline-block; width: 52px; text-align: center; border-radius: 6px; font-size: 0.75rem; font-weight: 700; padding: 2px 0; }
+    .pill-sell  { background: rgba(248,81,73,0.2);  color: var(--red); }
+    .pill-buy   { background: rgba(63,185,80,0.2);  color: var(--green); }
+    .pill-hold  { background: rgba(210,153,34,0.2); color: var(--yellow); }
+    .pill-short { background: rgba(248,81,73,0.3);  color: var(--red); }
+
+    /* Plotly override */
+    .plotly-graph-div { border-radius: 8px; }
+    .js-plotly-plot .plotly { border-radius: 8px; }
+
+    /* Scrollable signal list */
+    .signal-scroll { max-height: 340px; overflow-y: auto; }
+    .signal-scroll::-webkit-scrollbar { width: 4px; }
+    .signal-scroll::-webkit-scrollbar-track { background: transparent; }
+    .signal-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* Metrics grid */
+    .metric-box { padding: 0.8rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: rgba(255,255,255,0.02); }
+    .metric-val { font-size: 1.5rem; font-weight: 700; }
+    .metric-lbl { font-size: 0.72rem; color: var(--muted); }
+
+    /* Last updated */
+    #last-updated { font-size: 0.75rem; color: var(--muted); }
+
+    /* Stance badge */
+    .stance-badge { font-size: 0.9rem; padding: 4px 14px; border-radius: 20px; font-weight: 700; letter-spacing: 0.05em; }
+    .stance-bearish { background: rgba(248,81,73,0.15); color: var(--red); border: 1px solid rgba(248,81,73,0.4); }
+    .stance-bullish { background: rgba(63,185,80,0.15);  color: var(--green); border: 1px solid rgba(63,185,80,0.4); }
+    .stance-neutral { background: rgba(210,153,34,0.15); color: var(--yellow); border: 1px solid rgba(210,153,34,0.4); }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark px-4 py-2">
+  <span class="navbar-brand"><i class="bi bi-robot me-2"></i>AI 投資訊號預警系統</span>
+  <div class="ms-auto d-flex align-items-center gap-3">
+    <span id="last-updated"><i class="bi bi-clock me-1"></i>載入中...</span>
+    <span class="nav-badge"><i class="bi bi-exclamation-triangle-fill me-1"></i><span id="urgent-count">0</span> 高風險</span>
+  </div>
+</nav>
+
+<div class="container-fluid px-4 py-3">
+
+  <!-- KPI Row -->
+  <div class="row g-3 mb-3" id="kpi-row">
+    <div class="col-6 col-lg-3">
+      <div class="kpi-tile d-flex justify-content-between align-items-center">
+        <div>
+          <div class="kpi-value text-accent" id="kpi-signals">—</div>
+          <div class="kpi-label">偵測訊號數</div>
+        </div>
+        <i class="bi bi-broadcast kpi-icon text-accent"></i>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="kpi-tile d-flex justify-content-between align-items-center">
+        <div>
+          <div class="kpi-value text-red" id="kpi-bearish">—</div>
+          <div class="kpi-label">空頭訊號</div>
+        </div>
+        <i class="bi bi-graph-down-arrow kpi-icon text-red"></i>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="kpi-tile d-flex justify-content-between align-items-center">
+        <div>
+          <div class="kpi-value text-green" id="kpi-bullish">—</div>
+          <div class="kpi-label">多頭訊號</div>
+        </div>
+        <i class="bi bi-graph-up-arrow kpi-icon text-green"></i>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="kpi-tile d-flex justify-content-between align-items-center">
+        <div>
+          <div class="kpi-value text-green" id="kpi-alpha">—</div>
+          <div class="kpi-label">策略 Alpha</div>
+        </div>
+        <i class="bi bi-lightning-charge kpi-icon text-green"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Portfolio Chart + Signal List -->
+  <div class="row g-3 mb-3">
+    <!-- Portfolio vs Benchmark -->
+    <div class="col-lg-8">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-bar-chart-line me-2"></i>策略回測 vs 基準 (3年)</span>
+          <div class="btn-group btn-group-sm" id="chart-toggle">
+            <button class="btn btn-outline-secondary active" onclick="showChart('portfolio')">投組價值</button>
+            <button class="btn btn-outline-secondary" onclick="showChart('drawdown')">最大回撤</button>
+          </div>
+        </div>
+        <div class="card-body p-2">
+          <div id="chart-portfolio" style="height:300px;"></div>
+          <div id="chart-drawdown" style="height:300px;display:none;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Signal Feed -->
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-rss me-2"></i>最新訊號 Feed</div>
+        <div class="signal-scroll" id="signal-list">
+          <div class="text-center py-4 text-muted">載入中...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: Sentiment Chart + Strategy + Metrics -->
+  <div class="row g-3 mb-3">
+    <!-- Sentiment Gauge -->
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-emoji-expressionless me-2"></i>情緒分析分佈</div>
+        <div class="card-body p-2">
+          <div id="chart-sentiment" style="height:220px;"></div>
+          <div id="chart-sectors" style="height:180px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Strategy -->
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-cpu me-2"></i>AI 生成投資策略</div>
+        <div class="card-body px-3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <div class="text-muted" style="font-size:0.75rem">整體立場</div>
+              <span class="stance-badge stance-bearish" id="strategy-stance">—</span>
+            </div>
+            <div class="text-end">
+              <div class="text-muted" style="font-size:0.75rem">預期報酬</div>
+              <div class="fw-bold text-accent" id="strategy-return">—</div>
+            </div>
+          </div>
+          <div id="strategy-actions"></div>
+          <div class="mt-3 p-2" style="background:rgba(248,81,73,0.08);border-radius:8px;border:1px solid rgba(248,81,73,0.2);">
+            <div style="font-size:0.72rem;color:var(--muted)">⚠ 主要風險</div>
+            <div id="strategy-risks" style="font-size:0.8rem;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Performance Metrics -->
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header"><i class="bi bi-speedometer2 me-2"></i>回測績效指標</div>
+        <div class="card-body">
+          <div class="row g-2" id="metrics-grid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const COLORS = {
+  bg: '#0d1117', card: '#161b22', border: '#30363d',
+  accent: '#58a6ff', green: '#3fb950', red: '#f85149',
+  yellow: '#d29922', text: '#c9d1d9', muted: '#8b949e'
+};
+const PLOTLY_LAYOUT_BASE = {
+  paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+  font: { color: COLORS.text, family: 'Segoe UI, system-ui, sans-serif', size: 11 },
+  margin: { t: 10, r: 10, b: 40, l: 55 },
+  xaxis: { gridcolor: COLORS.border, zerolinecolor: COLORS.border },
+  yaxis: { gridcolor: COLORS.border, zerolinecolor: COLORS.border },
+  legend: { bgcolor: 'transparent', font: { size: 11 } },
+  hovermode: 'x unified',
+};
+
+let btData = null;
+
+// ── Fetch helpers ─────────────────────────────────────────────────────────────
+async function fetchAll() {
+  const [summary, signals, strategy, backtest] = await Promise.all([
+    fetch('/api/summary').then(r => r.json()),
+    fetch('/api/signals').then(r => r.json()),
+    fetch('/api/strategy').then(r => r.json()),
+    fetch('/api/backtest').then(r => r.json()),
+  ]);
+  btData = backtest;
+  renderKPI(summary, backtest.metrics);
+  renderSignals(signals);
+  renderSentiment(signals);
+  renderSectors(signals);
+  renderPortfolioChart(backtest);
+  renderDrawdownChart(backtest);
+  renderStrategy(strategy);
+  renderMetrics(backtest.metrics);
+  document.getElementById('last-updated').innerHTML =
+    `<i class="bi bi-clock me-1"></i>更新時間: ${summary.last_updated}`;
+  document.getElementById('urgent-count').textContent = summary.high_urgency;
+}
+
+// ── KPI ───────────────────────────────────────────────────────────────────────
+function renderKPI(sum, met) {
+  document.getElementById('kpi-signals').textContent = sum.total_signals;
+  document.getElementById('kpi-bearish').textContent = sum.bearish;
+  document.getElementById('kpi-bullish').textContent = sum.bullish;
+  const alpha = met.alpha;
+  document.getElementById('kpi-alpha').textContent =
+    (alpha >= 0 ? '+' : '') + alpha.toFixed(2) + '%';
+}
+
+// ── Signal Feed ───────────────────────────────────────────────────────────────
+const EVENT_COLORS = {
+  TARIFF_POLICY: '#f85149', INTEREST_RATE: '#d29922',
+  GOVERNMENT_SUBSIDY: '#3fb950', SUPPLY_CHAIN_DISRUPTION: '#f85149',
+  TRADE_AGREEMENT: '#3fb950', AI_REGULATION: '#58a6ff', default: '#8b949e'
+};
+function renderSignals(signals) {
+  const el = document.getElementById('signal-list');
+  el.innerHTML = signals.map(s => {
+    const c = EVENT_COLORS[s.type] || EVENT_COLORS.default;
+    const scoreColor = s.score > 0 ? COLORS.green : s.score < 0 ? COLORS.red : COLORS.muted;
+    return `
+      <div class="signal-item">
+        <div class="d-flex justify-content-between align-items-start">
+          <span class="badge-event" style="background:${c}22;color:${c};border:1px solid ${c}44;">
+            ${s.type.replace(/_/g,' ')}
+          </span>
+          <span style="font-size:0.72rem;color:${COLORS.muted}">${s.date}</span>
+        </div>
+        <div class="mt-1" style="font-size:0.82rem;">${s.summary}</div>
+        <div class="mt-1 d-flex gap-2" style="font-size:0.72rem;">
+          <span style="color:${scoreColor}">情緒: ${s.score > 0 ? '+' : ''}${s.score.toFixed(2)}</span>
+          <span style="color:${COLORS.muted}">|</span>
+          <span style="color:${s.urgency==='high'?COLORS.red:COLORS.muted}">${s.urgency.toUpperCase()}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Sentiment Donut ───────────────────────────────────────────────────────────
+function renderSentiment(signals) {
+  const counts = { negative: 0, positive: 0, neutral: 0 };
+  signals.forEach(s => counts[s.sentiment]++);
+  Plotly.newPlot('chart-sentiment', [{
+    type: 'pie', hole: 0.55,
+    values: [counts.negative, counts.positive, counts.neutral],
+    labels: ['空頭訊號', '多頭訊號', '中性'],
+    marker: { colors: [COLORS.red, COLORS.green, COLORS.muted] },
+    textfont: { color: COLORS.text },
+    hovertemplate: '%{label}: %{value}<extra></extra>',
+  }], {
+    ...PLOTLY_LAYOUT_BASE,
+    margin: { t: 5, r: 10, b: 5, l: 10 },
+    showlegend: true,
+    legend: { orientation: 'h', y: -0.05, font: { size: 11 } },
+    annotations: [{
+      text: `${signals.length}<br><span style="font-size:10px">訊號</span>`,
+      showarrow: false, font: { size: 16, color: COLORS.text }, x: 0.5, y: 0.5
+    }]
+  }, { displayModeBar: false, responsive: true });
+}
+
+// ── Sector Bar ────────────────────────────────────────────────────────────────
+function renderSectors(signals) {
+  const counts = {};
+  signals.forEach(s => s.sectors.forEach(sec => counts[sec] = (counts[sec] || 0) + 1));
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  Plotly.newPlot('chart-sectors', [{
+    type: 'bar', orientation: 'h',
+    x: sorted.map(e => e[1]),
+    y: sorted.map(e => e[0]),
+    marker: { color: COLORS.accent, opacity: 0.75 },
+    hovertemplate: '%{y}: %{x} 訊號<extra></extra>',
+  }], {
+    ...PLOTLY_LAYOUT_BASE,
+    margin: { t: 5, r: 10, b: 25, l: 80 },
+    xaxis: { ...PLOTLY_LAYOUT_BASE.xaxis, title: { text: '訊號數', font: { size: 10 } } },
+  }, { displayModeBar: false, responsive: true });
+}
+
+// ── Portfolio Chart ───────────────────────────────────────────────────────────
+function renderPortfolioChart(bt) {
+  Plotly.newPlot('chart-portfolio', [
+    {
+      x: bt.dates, y: bt.portfolio, name: 'AI 策略',
+      type: 'scatter', mode: 'lines',
+      line: { color: COLORS.accent, width: 2 },
+      fill: 'tozeroy', fillcolor: 'rgba(88,166,255,0.06)',
+      hovertemplate: '%{x}<br>策略: $%{y:,.0f}<extra></extra>',
+    },
+    {
+      x: bt.dates, y: bt.benchmark, name: 'SPY 基準',
+      type: 'scatter', mode: 'lines',
+      line: { color: COLORS.muted, width: 1.5, dash: 'dash' },
+      hovertemplate: '%{x}<br>SPY: $%{y:,.0f}<extra></extra>',
+    }
+  ], {
+    ...PLOTLY_LAYOUT_BASE,
+    yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, tickprefix: '$', tickformat: ',.0f' },
+  }, { displayModeBar: false, responsive: true });
+}
+
+// ── Drawdown Chart ────────────────────────────────────────────────────────────
+function renderDrawdownChart(bt) {
+  Plotly.newPlot('chart-drawdown', [{
+    x: bt.dates, y: bt.drawdown, name: '回撤 %',
+    type: 'scatter', mode: 'lines',
+    line: { color: COLORS.red, width: 1.5 },
+    fill: 'tozeroy', fillcolor: 'rgba(248,81,73,0.12)',
+    hovertemplate: '%{x}<br>回撤: %{y:.2f}%<extra></extra>',
+  }], {
+    ...PLOTLY_LAYOUT_BASE,
+    yaxis: { ...PLOTLY_LAYOUT_BASE.yaxis, ticksuffix: '%' },
+  }, { displayModeBar: false, responsive: true });
+}
+
+function showChart(type) {
+  document.getElementById('chart-portfolio').style.display = type === 'portfolio' ? '' : 'none';
+  document.getElementById('chart-drawdown').style.display  = type === 'drawdown'  ? '' : 'none';
+  document.querySelectorAll('#chart-toggle button').forEach((btn, i) => {
+    btn.classList.toggle('active', (i === 0) === (type === 'portfolio'));
+  });
+}
+
+// ── Strategy ──────────────────────────────────────────────────────────────────
+function renderStrategy(st) {
+  const stanceEl = document.getElementById('strategy-stance');
+  stanceEl.textContent = st.stance.toUpperCase();
+  stanceEl.className = `stance-badge stance-${st.stance}`;
+  document.getElementById('strategy-return').textContent = st.expected_return;
+
+  const pill = a => {
+    const cls = { SELL:'pill-sell', BUY:'pill-buy', HOLD:'pill-hold', SHORT:'pill-short' }[a] || '';
+    return `<span class="action-pill ${cls}">${a}</span>`;
+  };
+  document.getElementById('strategy-actions').innerHTML = st.actions.map(a => `
+    <div class="action-row d-flex align-items-start gap-2">
+      ${pill(a.action)}
+      <div>
+        <span class="fw-bold" style="font-size:0.85rem;">${a.asset}</span>
+        <span class="text-muted" style="font-size:0.75rem;"> ${a.pct}%</span>
+        <div style="font-size:0.75rem;color:var(--muted)">${a.rationale}</div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('strategy-risks').innerHTML =
+    st.risks.map(r => `<div>• ${r}</div>`).join('');
+}
+
+// ── Metrics Grid ──────────────────────────────────────────────────────────────
+function renderMetrics(m) {
+  const items = [
+    { label: '年化報酬', value: (m.annualized_return >= 0 ? '+' : '') + m.annualized_return.toFixed(2) + '%',
+      color: m.annualized_return >= 0 ? COLORS.green : COLORS.red },
+    { label: '總報酬', value: (m.total_return >= 0 ? '+' : '') + m.total_return.toFixed(2) + '%',
+      color: m.total_return >= 0 ? COLORS.green : COLORS.red },
+    { label: '最大回撤', value: m.max_drawdown.toFixed(2) + '%', color: COLORS.red },
+    { label: '夏普比率', value: m.sharpe.toFixed(3),
+      color: m.sharpe >= 1 ? COLORS.green : m.sharpe >= 0.5 ? COLORS.yellow : COLORS.red },
+    { label: '年化波動率', value: m.volatility.toFixed(1) + '%', color: COLORS.muted },
+    { label: '勝率', value: m.win_rate.toFixed(1) + '%',
+      color: m.win_rate >= 55 ? COLORS.green : COLORS.yellow },
+    { label: '基準報酬', value: (m.benchmark_return >= 0 ? '+' : '') + m.benchmark_return.toFixed(2) + '%',
+      color: COLORS.muted },
+    { label: 'Alpha', value: (m.alpha >= 0 ? '+' : '') + m.alpha.toFixed(2) + '%',
+      color: m.alpha >= 0 ? COLORS.green : COLORS.red },
+    { label: '交易次數', value: m.total_trades, color: COLORS.accent },
+  ];
+  document.getElementById('metrics-grid').innerHTML = items.map(i => `
+    <div class="col-6">
+      <div class="metric-box">
+        <div class="metric-val" style="color:${i.color}">${i.value}</div>
+        <div class="metric-lbl">${i.label}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+fetchAll();
+// Refresh every 60 seconds
+setInterval(fetchAll, 60000);
+</script>
+</body>
+</html>
