@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base ── */
+body {
+  margin: 0;
+  background: #12141f;
+  color: #e0e0f0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 14px;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  text-align: left;
+  min-height: 100vh;
+}
+
+/* ── Card ── */
+.card {
+  background: #1a1d2e;
+  border: 1px solid #2e3058;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* ── KPI card ── */
+.kpi { padding: 18px 20px; }
+.kpi .lbl { font-size: 11px; color: #9090b0; margin-bottom: 6px; line-height: 1.3; }
+.kpi .val { font-size: 26px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.kpi .chg { font-size: 11px; }
+.pos { color: #43e97b; }
+.neg { color: #ef5350; }
+
+/* ── Tabs ── */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid #2e3058; }
+.tab {
+  padding: 8px 16px; font-size: 13px; color: #9090b0;
+  background: transparent; border: none; border-bottom: 2px solid transparent;
+  cursor: pointer; transition: all 0.15s;
+}
+.tab:hover { color: #e0e0f0; }
+.tab.active { color: #6c63ff; border-bottom-color: #6c63ff; }
+
+/* ── Card title ── */
+.ct {
+  font-size: 12px; font-weight: 600; color: #9090b0;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin-bottom: 14px; display: flex; align-items: center; gap: 6px;
+}
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── Flow diagram ── */
+.flow { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+.fstep {
+  flex: 1; min-width: 120px; background: #1e2138;
+  border: 1px solid #2e3058; border-radius: 10px; padding: 12px;
+  transition: all 0.15s;
+}
+.fstep:hover { border-color: #9090b0; }
+.sn { font-size: 9px; font-weight: 700; color: #9090b0; letter-spacing: 0.08em; margin-bottom: 6px; }
+.st { font-size: 12px; font-weight: 600; margin-bottom: 6px; color: #e0e0f0; }
+.sd { font-size: 10px; color: #9090b0; line-height: 1.5; }
+.farr { display: flex; align-items: center; color: #9090b0; font-size: 16px; padding: 0 2px; }
+
+/* ── API Banner ── */
+.apib {
+  background: #1a1d2e; border: 1px solid #2e3058; border-radius: 12px;
+  padding: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+
+/* ── Section header ── */
+.shdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+.shdr h2 { font-size: 14px; font-weight: 600; margin: 0 0 2px; color: #e0e0f0; }
+.shdr p { font-size: 11px; color: #9090b0; margin: 0; }
+
+/* ── Tag grid ── */
+.tg { display: flex; flex-wrap: wrap; gap: 6px; max-height: 260px; overflow-y: auto; }
+.chip {
+  padding: 6px 10px; background: #1e2138; border: 1px solid #2e3058;
+  border-radius: 8px; cursor: pointer; transition: all 0.15s;
+  font-size: 11px; color: #9090b0; text-align: center; min-width: 64px;
+}
+.chip:hover { border-color: #6c63ff; color: #e0e0f0; }
+.chip.sel { background: rgba(108,99,255,.18); border-color: #6c63ff; color: #6c63ff; }
+.chip .cn { font-size: 10px; color: inherit; margin-top: 2px; }
+
+/* ── Buttons ── */
+.btn {
+  padding: 7px 14px; border-radius: 8px; font-size: 12px;
+  font-weight: 600; cursor: pointer; border: 1px solid; transition: all 0.15s;
+}
+.bp { background: #6c63ff; border-color: #6c63ff; color: #fff; }
+.bp:hover { background: #7c73ff; }
+.bp:disabled { opacity: 0.5; cursor: not-allowed; }
+.bs { background: transparent; border-color: #2e3058; color: #9090b0; }
+.bs:hover { border-color: #9090b0; color: #e0e0f0; }
+
+/* ── Table ── */
+.tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.tbl th {
+  text-align: left; padding: 8px 10px; color: #9090b0;
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; border-bottom: 1px solid #2e3058;
+}
+.tbl th.r, .tbl td.r { text-align: right; }
+.tbl td { padding: 8px 10px; border-bottom: 1px solid #1e2138; vertical-align: middle; }
+.tbl tr:hover td { background: rgba(255,255,255,.02); }
+
+/* ── Score bar ── */
+.sbar { display: flex; align-items: center; gap: 6px; }
+.sbar .bg { flex: 1; background: #252840; border-radius: 4px; height: 6px; overflow: hidden; }
+.sbar .fill { height: 100%; border-radius: 4px; }
+.sbar .num { font-size: 11px; color: #9090b0; min-width: 24px; text-align: right; }
+
+/* ── Quintile badges ── */
+.bdg { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.bq1 { background: rgba(239,83,80,.2); color: #ef5350; }
+.bq2 { background: rgba(255,152,0,.2); color: #ff9800; }
+.bq3 { background: rgba(158,158,158,.2); color: #9e9e9e; }
+.bq4 { background: rgba(66,165,245,.2); color: #42a5f5; }
+.bq5 { background: rgba(38,166,154,.2); color: #26a69a; }
+
+/* ── Scrollbar ── */
+.scrollbar-thin::-webkit-scrollbar { width: 4px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: #2e3058; border-radius: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
